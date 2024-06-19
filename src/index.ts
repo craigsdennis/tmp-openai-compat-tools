@@ -1,18 +1,114 @@
-/**
- * Welcome to Cloudflare Workers! This is your first worker.
- *
- * - Run `npm run dev` in your terminal to start a development server
- * - Open a browser tab at http://localhost:8787/ to see your worker in action
- * - Run `npm run deploy` to publish your worker
- *
- * Bind resources to your worker in `wrangler.toml`. After adding bindings, a type definition for the
- * `Env` object can be regenerated with `npm run cf-typegen`.
- *
- * Learn more at https://developers.cloudflare.com/workers/
- */
+import { Hono } from 'hono';
+import OpenAI from 'openai';
 
-export default {
-	async fetch(request, env, ctx): Promise<Response> {
-		return new Response('Hello World!');
-	},
-} satisfies ExportedHandler<Env>;
+type Env = {
+	AI: Ai;
+	CLOUDFLARE_API_KEY: string;
+	CLOUDFLARE_ACCOUNT_ID: string;
+	OPENAI_API_KEY: string;
+};
+
+const app = new Hono<{ Bindings: Env }>();
+
+app.get('/chat-completions', async (c) => {
+	const openai = new OpenAI({
+		apiKey: c.env.CLOUDFLARE_API_KEY,
+		baseURL: `https://api.cloudflare.com/client/v4/accounts/${c.env.CLOUDFLARE_ACCOUNT_ID}/ai/v1`,
+	});
+
+	const chatCompletion = await openai.chat.completions.create({
+		messages: [{ role: 'user', content: 'Make some robot noises' }],
+		model: '@cf/meta/llama-3-8b-instruct',
+	});
+	return c.json(chatCompletion);
+});
+
+// https://platform.openai.com/docs/api-reference/chat/create#chat-create-tools
+
+app.get('/our-tool-calls', async (c) => {
+	const result = await c.env.AI.run('@hf/nousresearch/hermes-2-pro-mistral-7b', {
+		messages: [{ role: 'user', content: 'Hype up the user HichaelMart' }],
+		tools: [
+			{
+				name: 'hypeUp',
+				description: 'Hypes up the user',
+				parameters: {
+					type: 'object',
+					properties: {
+						userName: {
+							type: 'string',
+							description: 'The user name that will be hyped up',
+						},
+					},
+					required: ['userName'],
+				},
+			},
+		],
+	});
+	return c.json(result);
+});
+
+app.get('/their-tool-calls', async(c) => {
+	const openai = new OpenAI({
+		apiKey: c.env.OPENAI_API_KEY
+	});
+
+	const chatCompletion = await openai.chat.completions.create({
+		messages: [{ role: 'user', content: 'Hype up the user HichaelMart' }],
+		model: 'gpt-4o',
+		tools: [
+			{
+				type: 'function',
+				function: {
+					name: 'hypeUp',
+					description: 'Hypes up the user',
+					parameters: {
+						type: 'object',
+						properties: {
+							userName: {
+								type: 'string',
+								description: 'The user name that will be hyped up',
+							},
+						},
+						required: ['userName'],
+					},
+				},
+			},
+		],
+	});
+	return c.json(chatCompletion);
+});
+
+app.get('/compat-tool-calls', async (c) => {
+	const openai = new OpenAI({
+		apiKey: c.env.CLOUDFLARE_API_KEY,
+		baseURL: `https://api.cloudflare.com/client/v4/accounts/${c.env.CLOUDFLARE_ACCOUNT_ID}/ai/v1`,
+	});
+
+	const chatCompletion = await openai.chat.completions.create({
+		messages: [{ role: 'user', content: 'Hype up the user HichaelMart' }],
+		model: '@hf/nousresearch/hermes-2-pro-mistral-7b',
+		tools: [
+			{
+				type: 'function',
+				function: {
+					name: 'hypeUp',
+					description: 'Hypes up the user',
+					parameters: {
+						type: 'object',
+						properties: {
+							userName: {
+								type: 'string',
+								description: 'The user name that will be hyped up',
+							},
+						},
+						required: ['userName'],
+					},
+				},
+			},
+		],
+	});
+	return c.json(chatCompletion);
+});
+
+export default app;
