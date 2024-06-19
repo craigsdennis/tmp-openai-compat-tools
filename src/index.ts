@@ -10,6 +10,26 @@ type Env = {
 
 const app = new Hono<{ Bindings: Env }>();
 
+app.get('/', async(c) => {
+	return c.html(`
+		<h1>Temporary Testing</h1>
+		<h2>API calls</h2>
+		<ul>
+			<li><a href="/our-tool-calls" target="ours">Our Tool Calls</a></li>
+			<li><a href="/their-tool-calls" target="theirs">OpenAI Tool Calls</a></li>
+			<li><a href="/compat-tool-calls" target="compat">Compat Tool Calls</a></li>
+		</ul>
+
+		<h2>Resources</h2>
+		<ul>
+			<li><a href="https://github.com/craigsdennis/tmp-openai-compat-tools">This repo</a></li>
+			<li><a href="https://platform.openai.com/docs/api-reference/chat/create#chat-create-tools">Their API docs</a></li>
+		</ul>
+
+
+    `);
+})
+
 app.get('/chat-completions', async (c) => {
 	const openai = new OpenAI({
 		apiKey: c.env.CLOUDFLARE_API_KEY,
